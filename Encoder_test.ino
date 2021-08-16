@@ -4,7 +4,6 @@
 #include <geometry_msgs/Vector3Stamped.h>
 #include <geometry_msgs/Twist.h>
 #include <ros/time.h>
-
 const byte noCommLoopMax = 10;                //number of main loops the robot will execute without communication before stopping
 unsigned int noCommLoops = 0;                 //main loop without communication counter
 
@@ -25,10 +24,10 @@ int enD = 11, fwdD = 24, revD = 25; //Direction and Speed pin rear left wheel
 /*------------------------END---------------------------*/
 
 /*------------------------Decalre PID parameter for each wheels----------*/
-double kp_frontright = 1, ki_frontright = 20, kd_frontright = 0;
-double kp_frontleft = 1, ki_frontleft = 20, kd_frontleft = 0;
-double kp_rearright = 1, ki_rearright = 20, kd_rearright = 0;
-double kp_rearleft = 1, ki_rearleft = 20, kd_rearleft = 0;
+double kp_frontright = 5, ki_frontright = 1, kd_frontright = 0.01;
+double kp_frontleft = 5, ki_frontleft = 1, kd_frontleft = 0.01;
+double kp_rearright = 5, ki_rearright = 1, kd_rearright = 0.01;
+double kp_rearleft = 5, ki_rearleft = 1, kd_rearleft = 0.01;
 
 double input_frontright = 0, output_frontright = 0, setpoint_frontright = 0;
 double input_frontleft = 0, output_frontleft = 0, setpoint_frontleft = 0;
@@ -78,16 +77,6 @@ void handle_cmd (const geometry_msgs::Twist& cmd_vel) {
   setpoint_frontright = speed_req + angular_speed_req*(wheelbase/2);    //Calculate the required speed for the right motor to comply with commanded linear and angular speeds
 }
 /*---------------------------------END-----------------------------------*/
-
-void publishSpeed(double time) {
-  speed_msg.header.stamp = nh.now();      //timestamp for odometry data
-  speed_msg.vector.x = input_frontleft;    //left wheel speed (in m/s)
-  speed_msg.vector.y = input_frontright;   //right wheel speed (in m/s)
-  speed_msg.vector.z = time/1000;         //looptime, should be the same as specified in LOOPTIME (in s)
-  speed_pub.publish(&speed_msg);
-  nh.spinOnce();
-  nh.loginfo("Publishing odometry");
-}
 
 ros::Subscriber<geometry_msgs::Twist> cmd_vel("cmd_vel", handle_cmd);   //create a subscriber to ROS topic for velocity commands (will execute "handle_cmd" function when receiving data)
 geometry_msgs::Vector3Stamped speed_msg;                                //create a "speed_msg" ROS message
@@ -176,7 +165,7 @@ void loop() {
 
     output_frontleft = constrain(output_frontleft, -255, 255);
     front_left.Compute();
-    PWM_leftMotor = constrain(((setpoint_frontleft+sgn(setpoint_frontleft)*min_speed_cmd)/speed_to_pwm_ratio) + (output_frontleft/speed_to_pwm_ratio), -255, 255); //
+    PWM_leftMotor = constrain(((setpoint_frontleft + sgn(setpoint_frontleft)*min_speed_cmd)/speed_to_pwm_ratio) + (output_frontleft/speed_to_pwm_ratio), -255, 255); //
 
     if (noCommLoops >= noCommLoopMax) {                   //Stopping if too much time without command
       pwmOut(enC, fwdC, revC, 0);
@@ -251,4 +240,18 @@ void pwmOut(int en_pin, int fwd_pin, int back_pin, int out){
     digitalWrite(fwd_pin, LOW);
     digitalWrite(back_pin, HIGH);
   }
+}
+
+void publishSpeed(double time) {
+  speed_msg.header.stamp = nh.now();      //timestamp for odometry data
+  speed_msg.vector.x = input_frontleft;    //left wheel speed (in m/s)
+  speed_msg.vector.y = input_frontright;   //right wheel speed (in m/s)
+  speed_msg.vector.z = time/1000;         //looptime, should be the same as specified in LOOPTIME (in s)
+  speed_pub.publish(&speed_msg);
+  nh.spinOnce();
+  nh.loginfo("Publishing odometry");
+}
+
+template <typename T> int sgn(T val) {
+    return (T(0) < val) - (val < T(0));
 }
